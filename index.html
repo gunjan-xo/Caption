@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Caption Machine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;1,500&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink: #1c2541;
+    --paper: #ede8d9;
+    --paper-line: #ddd6c1;
+    --highlighter: #f4c10f;
+    --rust: #b33f2e;
+    --card: #f7f4ea;
+    --muted: #6d6a5c;
+  }
+
+  *{ box-sizing: border-box; }
+
+  html,body{
+    margin:0;
+    padding:0;
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        transparent,
+        transparent 37px,
+        var(--paper-line) 38px
+      ),
+      var(--paper);
+    color: var(--ink);
+    font-family: 'Space Mono', monospace;
+    min-height:100vh;
+  }
+
+  ::selection{ background: var(--highlighter); color: var(--ink); }
+
+  a, button{ font-family: inherit; }
+
+  :focus-visible{
+    outline: 3px solid var(--rust);
+    outline-offset: 3px;
+  }
+
+  .page{
+    max-width: 660px;
+    margin: 0 auto;
+    padding: 64px 24px 96px;
+  }
+
+  /* ---- Masthead ---- */
+  header.masthead{
+    margin-bottom: 48px;
+  }
+
+  .kicker{
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    color: var(--muted);
+    margin: 0 0 6px;
+  }
+
+  h1{
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: clamp(40px, 8vw, 62px);
+    line-height: 0.98;
+    margin: 0 0 14px;
+    position: relative;
+  }
+
+  h1 .accent-wrap{
+    position: relative;
+    display: inline-block;
+  }
+
+  h1 .accent-wrap svg{
+    position: absolute;
+    left: -4%;
+    bottom: -0.12em;
+    width: 108%;
+    height: 0.4em;
+    z-index: -1;
+  }
+
+  p.dek{
+    max-width: 46ch;
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--ink);
+    margin: 0;
+  }
+
+  p.dek em{
+    font-style: italic;
+    color: var(--rust);
+  }
+
+  hr.rule{
+    border: none;
+    border-top: 1px solid var(--ink);
+    margin: 40px 0 36px;
+  }
+
+  /* ---- Controls ---- */
+  .field-label{
+    font-size: 12px;
+    color: var(--muted);
+    margin: 0 0 10px;
+  }
+
+  .vibes{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 30px;
+  }
+
+  .vibe-chip{
+    background: transparent;
+    border: 1px solid var(--ink);
+    color: var(--ink);
+    padding: 7px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    border-radius: 100px;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  .vibe-chip:hover{
+    background: rgba(28,37,65,0.06);
+  }
+
+  .vibe-chip.active{
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  .input-row{
+    display: flex;
+    align-items: stretch;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+
+  .keyword-field{
+    flex: 1;
+    position: relative;
+  }
+
+  .keyword-field input{
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid var(--ink);
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 24px;
+    padding: 8px 2px 10px;
+    color: var(--ink);
+  }
+
+  .keyword-field input::placeholder{
+    color: #8b8874;
+    opacity: 1;
+  }
+
+  .keyword-field input:focus{
+    outline: none;
+    border-bottom-color: var(--rust);
+  }
+
+  button.stamp{
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    padding: 0 26px;
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: transform 0.1s ease, background 0.15s ease;
+    border: 1px solid var(--ink);
+  }
+
+  button.stamp:hover{
+    background: var(--rust);
+    border-color: var(--rust);
+  }
+
+  button.stamp:active{
+    transform: translateY(1px) scale(0.98);
+  }
+
+  .hint{
+    font-size: 12px;
+    color: var(--muted);
+    margin: 14px 0 0;
+  }
+
+  /* ---- Results ---- */
+  .results{
+    margin-top: 52px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .empty-note{
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 18px;
+    color: var(--muted);
+    border-left: 2px solid var(--paper-line);
+    padding-left: 18px;
+    line-height: 1.6;
+  }
+
+  .card{
+    background: var(--card);
+    border: 1px solid var(--ink);
+    padding: 22px 22px 18px;
+    position: relative;
+    opacity: 0;
+    transform: translateY(14px) rotate(var(--tilt, 0deg));
+    animation: deal 0.45s ease forwards;
+    animation-delay: var(--delay, 0s);
+  }
+
+  @keyframes deal{
+    to{
+      opacity: 1;
+      transform: translateY(0) rotate(var(--tilt, 0deg));
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .card{
+      animation: none;
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .card .pin{
+    position: absolute;
+    top: -7px;
+    left: 22px;
+    width: 22px;
+    height: 10px;
+    background: var(--rust);
+    opacity: 0.85;
+  }
+
+  .card .caption-text{
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    line-height: 1.5;
+    margin: 6px 0 14px;
+    color: var(--ink);
+  }
+
+  .card .tags{
+    font-size: 13px;
+    color: var(--rust);
+    margin: 0 0 16px;
+    word-spacing: 6px;
+  }
+
+  .card-foot{
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  button.copy-btn{
+    background: none;
+    border: 1px solid var(--ink);
+    color: var(--ink);
+    font-size: 12px;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  button.copy-btn:hover{
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  button.copy-btn.copied{
+    background: var(--highlighter);
+    border-color: var(--highlighter);
+    color: var(--ink);
+  }
+
+  footer.foot{
+    margin-top: 60px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  @media (max-width: 480px){
+    .page{ padding: 44px 18px 72px; }
+    .input-row{ flex-direction: column; }
+    button.stamp{ padding: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <header class="masthead">
+    <p class="kicker">a small machine for social captions</p>
+    <h1>
+      Caption
+      <span class="accent-wrap">Machine
+        <svg viewBox="0 0 200 20" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M2,14 C40,20 160,20 198,10" stroke="var(--highlighter)" stroke-width="12" fill="none" stroke-linecap="round"/>
+        </svg>
+      </span>
+    </h1>
+    <p class="dek">Give it one word — a place, a mood, a thing you're posting about — and it types up five captions and a handful of tags built around it. <em>No account, no server, just the word you give it.</em></p>
+  </header>
+
+  <hr class="rule">
+
+  <div class="field-label">pick a tone</div>
+  <div class="vibes" id="vibes"></div>
+
+  <div class="field-label">your keyword</div>
+  <div class="input-row">
+    <div class="keyword-field">
+      <input type="text" id="keyword" placeholder="e.g. sunset, monday, first coffee" maxlength="40" autocomplete="off">
+    </div>
+    <button class="stamp" id="generate">Type it out</button>
+  </div>
+  <p class="hint" id="hint">Press enter or tap the button — five captions, freshly typed.</p>
+
+  <div class="results" id="results">
+    <p class="empty-note" id="emptyNote">Nothing typed up yet. Drop in a word above and I'll get to work.</p>
+  </div>
+
+  <footer class="foot">Every caption is written on your device — nothing you type is sent anywhere.</footer>
+
+</div>
+
+<script>
+  const VIBES = {
+    aesthetic: {
+      label: "aesthetic",
+      tag: "aesthetic",
+      templates: [
+        "soft focus on {kw}, everything else can wait",
+        "{kw} looked like a painting today and I just stood there",
+        "some days are just about the light and the {kw}",
+        "a quiet little ode to {kw}",
+        "{kw}, and nowhere else I'd rather be",
+        "found this {kw} moment and had to keep it",
+        "the kind of {kw} you don't scroll past",
+        "still thinking about that {kw}"
+      ]
+    },
+    funny: {
+      label: "funny",
+      tag: "funny",
+      templates: [
+        "me, pretending to understand {kw}",
+        "{kw} said 'trust the process' and I said 'no'",
+        "0 out of 10 plans survived contact with {kw}",
+        "in this economy? doing {kw} anyway",
+        "{kw} is not a personality trait but here we are",
+        "plot twist: it was {kw} all along",
+        "sending this to my therapist under 'exhibit A: {kw}'",
+        "{kw} > my to-do list, apparently"
+      ]
+    },
+    motivational: {
+      label: "motivational",
+      tag: "motivation",
+      templates: [
+        "{kw} didn't happen by accident — keep going",
+        "small steps toward {kw}, every single day",
+        "you don't need permission to start with {kw}",
+        "{kw} is proof that showing up works",
+        "one more rep, one more {kw}, one more win",
+        "the version of you chasing {kw} is worth it",
+        "progress looks like {kw} today, something else tomorrow",
+        "bet on yourself, then go make {kw} happen"
+      ]
+    },
+    travel: {
+      label: "travel",
+      tag: "travel",
+      templates: [
+        "packed light, found {kw}, worth every mile",
+        "{kw} was not on the itinerary and that's the best part",
+        "wrong turns are how you find {kw} like this",
+        "new stamp, new {kw}, same wanderlust",
+        "somewhere between the map and {kw}",
+        "{kw} looks better than the postcard, I promise",
+        "left home to go find {kw}",
+        "still jet-lagged, still thinking about {kw}"
+      ]
+    },
+    food: {
+      label: "food",
+      tag: "food",
+      templates: [
+        "{kw} is a personality trait at this point",
+        "reservations for one, please: me and this {kw}",
+        "cooked {kw} and didn't burn the kitchen down, growth",
+        "life's too short for bad {kw}",
+        "{kw}, or as I call it, dinner and a decision",
+        "the real reason I checked the weather was {kw}",
+        "chef's kiss: {kw}",
+        "this {kw} understood the assignment"
+      ]
+    },
+    love: {
+      label: "love",
+      tag: "love",
+      templates: [
+        "found my favorite kind of {kw}",
+        "{kw} looks better with you around",
+        "still choosing {kw}, every day, easily",
+        "not all love stories start with {kw}, ours did",
+        "you, me, and this {kw} — perfect",
+        "{kw} means more when it's shared",
+        "some things you just know, like {kw}",
+        "grateful for ordinary days that turn into {kw}"
+      ]
+    },
+    business: {
+      label: "business",
+      tag: "hustle",
+      templates: [
+        "built {kw} from a notes app and stubbornness",
+        "{kw} shipped. on to the next one",
+        "the idea was {kw}, the work was everything after",
+        "small team, big {kw}",
+        "{kw} taught me more than any course did",
+        "still bootstrapped, still building {kw}",
+        "{kw} is live — thank you for believing in it early",
+        "behind every launch is a very tired founder and {kw}"
+      ]
+    }
+  };
+
+  const vibesEl = document.getElementById('vibes');
+  const keywordEl = document.getElementById('keyword');
+  const generateBtn = document.getElementById('generate');
+  const resultsEl = document.getElementById('results');
+  const emptyNote = document.getElementById('emptyNote');
+  const hintEl = document.getElementById('hint');
+
+  let activeVibe = 'surprise';
+  let usedTemplates = {};
+
+  function buildChips(){
+    const surprise = document.createElement('button');
+    surprise.className = 'vibe-chip active';
+    surprise.type = 'button';
+    surprise.textContent = 'surprise me';
+    surprise.dataset.key = 'surprise';
+    surprise.addEventListener('click', () => selectVibe('surprise', surprise));
+    vibesEl.appendChild(surprise);
+
+    Object.keys(VIBES).forEach(key => {
+      const chip = document.createElement('button');
+      chip.className = 'vibe-chip';
+      chip.type = 'button';
+      chip.textContent = VIBES[key].label;
+      chip.dataset.key = key;
+      chip.addEventListener('click', () => selectVibe(key, chip));
+      vibesEl.appendChild(chip);
+    });
+  }
+
+  function selectVibe(key, chipEl){
+    activeVibe = key;
+    document.querySelectorAll('.vibe-chip').forEach(c => c.classList.remove('active'));
+    chipEl.classList.add('active');
+  }
+
+  function pool(){
+    if (activeVibe === 'surprise'){
+      let all = [];
+      Object.keys(VIBES).forEach(k => {
+        VIBES[k].templates.forEach(t => all.push({ text: t, tag: VIBES[k].tag }));
+      });
+      return all;
+    }
+    return VIBES[activeVibe].templates.map(t => ({ text: t, tag: VIBES[activeVibe].tag }));
+  }
+
+  function pickFive(list){
+    const shuffled = [...list].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, Math.min(5, shuffled.length));
+  }
+
+  function toHashtag(word){
+    return word.toLowerCase().replace(/[^a-z0-9]/g, '');
+  }
+
+  function hashtagsFor(kw, tag){
+    const base = toHashtag(kw) || 'caption';
+    const set = new Set([
+      '#' + base,
+      '#' + base + 'vibes',
+      '#' + base + 'life',
+      '#' + tag,
+      '#dailycaption'
+    ]);
+    return Array.from(set).join('  ');
+  }
+
+  function capitalizeFirst(str){
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+
+  function render(kw){
+    const list = pickFive(pool());
+    resultsEl.innerHTML = '';
+
+    if (list.length === 0){
+      emptyNote.style.display = 'block';
+      resultsEl.appendChild(emptyNote);
+      return;
+    }
+
+    list.forEach((item, i) => {
+      const captionText = capitalizeFirst(item.text.replace(/{kw}/g, kw));
+      const tags = hashtagsFor(kw, item.tag);
+
+      const card = document.createElement('div');
+      card.className = 'card';
+      const tilt = (Math.random() * 2 - 1).toFixed(2);
+      card.style.setProperty('--tilt', tilt + 'deg');
+      card.style.setProperty('--delay', (i * 0.08) + 's');
+
+      const pin = document.createElement('div');
+      pin.className = 'pin';
+      card.appendChild(pin);
+
+      const captionEl = document.createElement('p');
+      captionEl.className = 'caption-text';
+      captionEl.textContent = captionText;
+      card.appendChild(captionEl);
+
+      const tagsEl = document.createElement('p');
+      tagsEl.className = 'tags';
+      tagsEl.textContent = tags;
+      card.appendChild(tagsEl);
+
+      const foot = document.createElement('div');
+      foot.className = 'card-foot';
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'copy-btn';
+      copyBtn.type = 'button';
+      copyBtn.textContent = 'Copy';
+      copyBtn.addEventListener('click', () => {
+        const fullText = captionText + '\n' + tags;
+        navigator.clipboard.writeText(fullText).then(() => {
+          copyBtn.textContent = 'Copied';
+          copyBtn.classList.add('copied');
+          setTimeout(() => {
+            copyBtn.textContent = 'Copy';
+            copyBtn.classList.remove('copied');
+          }, 1500);
+        });
+      });
+      foot.appendChild(copyBtn);
+      card.appendChild(foot);
+
+      resultsEl.appendChild(card);
+    });
+  }
+
+  function handleGenerate(){
+    const kw = keywordEl.value.trim();
+    if (!kw){
+      hintEl.textContent = 'Type a word first — that\'s what it works from.';
+      hintEl.style.color = 'var(--rust)';
+      keywordEl.focus();
+      return;
+    }
+    hintEl.textContent = 'Press enter or tap the button — five captions, freshly typed.';
+    hintEl.style.color = 'var(--muted)';
+    render(kw);
+  }
+
+  generateBtn.addEventListener('click', handleGenerate);
+  keywordEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') handleGenerate();
+  });
+
+  buildChips();
+</script>
+
+</body>
+</html>
